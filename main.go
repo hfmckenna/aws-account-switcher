@@ -19,13 +19,22 @@ import (
 
 func main() {
 	arg := os.Args[1]
-	fmt.Println(arg)
+	accountsFile, err := os.Open("account-roles.json")
+	defer func(accounts *os.File) {
+		err := accounts.Close()
+		if err != nil {
+
+		}
+	}(accountsFile)
+	configDecoder := json.NewDecoder(accountsFile)
+	accountsConfig := map[string]interface{}{}
+	err = configDecoder.Decode(&accountsConfig)
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		log.Fatal(err)
 	}
 	stsClient := sts.NewFromConfig(cfg)
-	role := fmt.Sprintf("arn:aws:iam::%s:role/PowerUserRole", arg)
+	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", arg, accountsConfig[arg])
 	provider := stscreds.NewAssumeRoleProvider(stsClient, role)
 	cfg.Credentials = aws.NewCredentialsCache(provider)
 	creds, err := cfg.Credentials.Retrieve(context.TODO())
