@@ -97,6 +97,7 @@ func main() {
 		log.Fatal(err)
 	}
 	loginUrl := fmt.Sprintf("https://signin.aws.amazon.com/federation?Action=login&Destination=https://console.aws.amazon.com/&SigninToken=%s", signIn.SigninToken)
+	println(loginUrl)
 	err = open(loginUrl)
 	if err != nil {
 		log.Fatal(err)
@@ -105,19 +106,17 @@ func main() {
 
 func open(url string) error {
 	var cmd string
-	var args []string
+	var urlArg string
 	switch runtime.GOOS {
 	case "windows":
 		cmd = "powershell"
-		urlCmd := fmt.Sprintf("-c 'Start %s'", url)
-		args = []string{cmd, urlCmd}
+		urlArg = fmt.Sprintf("-c 'Start %s'", url)
 	case "darwin":
 		cmd = "open"
-		args = []string{cmd, url}
+		urlArg = url
 	default: // "linux", "freebsd", "openbsd", "netbsd"
 		cmd = "xdg-open"
-		args = []string{cmd, url}
+		urlArg = url
 	}
-	args = append(args)
-	return exec.Command(cmd, args...).Start()
+	return exec.Command(cmd, urlArg).Start()
 }
