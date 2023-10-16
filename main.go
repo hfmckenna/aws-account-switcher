@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/manifoldco/promptui"
 	"io"
 	"log"
 	"net/http"
@@ -18,7 +19,6 @@ import (
 )
 
 func main() {
-	arg := os.Args[1]
 	accountsFile, err := os.Open("account-roles.json")
 	defer func(accounts *os.File) {
 		err := accounts.Close()
@@ -33,9 +33,29 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err != nil {
+		fmt.Printf("Prompt failed %v\n", err)
+		return
+	}
+	accountKeys := make([]string, 0, len(accountsConfig))
+	for k := range accountsConfig {
+		accountKeys = append(accountKeys, k)
+	}
+	prompt := promptui.Select{
+		Label: "Select Account:",
+		Items: accountKeys,
+	}
+	_, result, err := prompt.Run()
+	account := accountsConfig[result].(map[string]interface{})
+	rolePrompt := promptui.Select{
+		Label: "Select Environment:",
+		Items: []string{"staging", "production"},
+	}
+	_, roleSelect, err := rolePrompt.Run()
+	selectedRole := account[roleSelect].(map[string]interface{})
 	stsClient := sts.NewFromConfig(cfg)
-	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", arg, accountsConfig[arg])
-	provider := stscreds.NewAssumeRoleProvider(stsClient, role)
+	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", selectedRole["id"], selectedRole["role"])
+	provider := stscreds.NewAssumeRoleProvider(stsClient, roleArn)
 	cfg.Credentials = aws.NewCredentialsCache(provider)
 	creds, err := cfg.Credentials.Retrieve(context.TODO())
 	if err != nil {
@@ -88,13 +108,16 @@ func open(url string) error {
 	var args []string
 	switch runtime.GOOS {
 	case "windows":
-		cmd = "cmd"
-		args = []string{"/c", "start"}
+		cmd = "powershell"
+		urlCmd := fmt.Sprintf("-c 'Start %s'", url)
+		args = []string{cmd, urlCmd}
 	case "darwin":
 		cmd = "open"
+		args = []string{cmd, url}
 	default: // "linux", "freebsd", "openbsd", "netbsd"
 		cmd = "xdg-open"
+		args = []string{cmd, url}
 	}
-	args = append(args, url)
+	args = append(args)
 	return exec.Command(cmd, args...).Start()
 }
