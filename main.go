@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 )
 
 func main() {
@@ -47,9 +48,13 @@ func main() {
 	}
 	_, result, err := prompt.Run()
 	account := accountsConfig[result].(map[string]interface{})
+	envKeys := make([]string, 0, len(account))
+	for k := range account {
+		envKeys = append(envKeys, k)
+	}
 	rolePrompt := promptui.Select{
 		Label: "Select Environment:",
-		Items: []string{"staging", "production"},
+		Items: envKeys,
 	}
 	_, roleSelect, err := rolePrompt.Run()
 	selectedRole := account[roleSelect].(map[string]interface{})
@@ -106,17 +111,18 @@ func main() {
 
 func open(url string) error {
 	var cmd string
-	var urlArg string
+	var args []string
+	targetUrl := url
 	switch runtime.GOOS {
 	case "windows":
-		cmd = "powershell"
-		urlArg = fmt.Sprintf("-c 'Start %s'", url)
+		cmd = "cmd"
+		args = []string{"/c", "start"}
+		targetUrl = "^" + strings.Replace(url, "&", "^&", -1)
 	case "darwin":
 		cmd = "open"
-		urlArg = url
 	default: // "linux", "freebsd", "openbsd", "netbsd"
 		cmd = "xdg-open"
-		urlArg = url
 	}
-	return exec.Command(cmd, urlArg).Start()
+	args = append(args, targetUrl)
+	return exec.Command(cmd, args...).Start()
 }
