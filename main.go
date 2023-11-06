@@ -19,18 +19,16 @@ import (
 	"strings"
 )
 
-func main() {
+func selectAccount() (id, role interface{}) {
 	accountsFile, err := os.Open("account-roles.json")
 	defer func(accounts *os.File) {
 		err := accounts.Close()
 		if err != nil {
-
 		}
 	}(accountsFile)
 	configDecoder := json.NewDecoder(accountsFile)
 	accountsConfig := map[string]interface{}{}
 	err = configDecoder.Decode(&accountsConfig)
-	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,8 +56,14 @@ func main() {
 	}
 	_, roleSelect, err := rolePrompt.Run()
 	selectedRole := account[roleSelect].(map[string]interface{})
+	return selectedRole["id"], selectedRole["role"]
+}
+
+func main() {
+	id, role := selectAccount()
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	stsClient := sts.NewFromConfig(cfg)
-	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", selectedRole["id"], selectedRole["role"])
+	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", id, role)
 	provider := stscreds.NewAssumeRoleProvider(stsClient, roleArn)
 	cfg.Credentials = aws.NewCredentialsCache(provider)
 	creds, err := cfg.Credentials.Retrieve(context.TODO())
